@@ -8,30 +8,21 @@ module API =
     open Microsoft.Azure.WebJobs.Extensions.Http
     open Newtonsoft.Json
     open System.IO
+    open System
 
-    let ofReq<'t when 't: equality>(req: HttpRequest) =
+    let ofReq<'t when 't: equality and 't :> obj>(req: HttpRequest) =
       try
-        if req = null || req.Body = null then Error "There is no body"
-        else
-          use body = new StreamReader(req.Body)
-          let x = JsonConvert.DeserializeObject<'t>(body.ReadToEnd())
-          if x = Unchecked.defaultof<'t> then
-            None |> Result.Ok
-          else
-            x |> Some |> Result.Ok
+        use body = new StreamReader(req.Body)
+        match JsonConvert.DeserializeObject<'t>(body.ReadToEnd()) with
+          | v when v = Unchecked.defaultof<_> -> None
+          | v -> Some v
+        |> Result.Ok
       with
-      exn -> Result.Error (exn.ToString())
+        exn -> Result.Error (exn.ToString())
 
     type DynamicStorageRow =
       {
       owner: string
-      key: string
-      ``type``: string
-      value: obj
-      }
-
-    type RequestRow =
-      {
       key: string
       ``type``: string
       value: obj
@@ -45,31 +36,41 @@ module API =
       ContentResult(Content="I am alive", ContentType="text")
 
     [<FunctionName("List")>]
-    let list([<HttpTrigger>] req: HttpRequest, log: ILogger) =
-      log.LogInformation("Executing")
+    let list([<HttpTrigger(Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
+      let t = ``type``
+      log.LogInformation(sprintf "Listing '%s'" t)
       JsonResult(store)
 
     [<FunctionName("Save")>]
-    let save([<HttpTrigger>] req: HttpRequest, log: ILogger) : ActionResult =
+    let save([<HttpTrigger("post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       try
-        log.LogInformation("Executing")
-        let x = req |> ofReq<RequestRow>
+        let x = req |> ofReq<obj>
+        let t = ``type``
+        log.LogInformation(sprintf "Saving '%s' '%s': '%A'" t name x)
         match x with
         | Error err ->
           log.LogError (sprintf "Error in save(): '%A'" err)
-          upcast (JsonResult err)
+          upcast ContentResult(Content=err, ContentType="text", StatusCode = Nullable 500)
         | Ok None ->
-          upcast (JsonResult "There is no body")
-        | Ok (Some { key = key; value = v; ``type`` = t }) ->
-          store <- (store |> Map.add key ({ DynamicStorageRow.value = box v; key = key; owner = "Unknown"; ``type`` = t }))
-          upcast (store.[key] |> JsonResult)
+          upcast (ContentResult(Content="Must supply payload in request body", ContentType="text", StatusCode = Nullable 400))
+        | Ok (Some v) ->
+          let key = name
+          let v = ({ DynamicStorageRow.value = box v; key = key; owner = "Unknown"; ``type`` = t })
+          store <- (store |> Map.add key v)
+          upcast JsonResult(v)
       with
       exn ->
         log.LogError (sprintf "Unhandled exception in save(): '%A'" exn)
-        upcast (StatusCodeResult(500))
+        upcast StatusCodeResult(500)
 
     [<FunctionName("Load")>]
-    let load([<HttpTrigger>] req: HttpRequest, log: ILogger) =
-      log.LogInformation("Executing")
-      JsonResult((28, 42, 16, "load"))
+    let load([<HttpTrigger(Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+      let t = ``type``
+      log.LogInformation(sprintf "Loading '%s' '%s'" t name)
+      match store.TryGetValue(name) with
+      | true, v ->
+        log.LogInformation(sprintf "Loaded '%s' '%s': '%A'" t name v)
+        upcast JsonResult(v)
+      | _ ->
+        upcast StatusCodeResult(404)
 
