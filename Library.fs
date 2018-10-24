@@ -31,13 +31,13 @@ module API =
     let mutable store = Map.empty
 
     [<FunctionName("List")>]
-    let list([<HttpTrigger(Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
+    let list([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
       let t = ``type``
       log.LogInformation(sprintf "Listing '%s'" t)
       JsonResult(store)
 
     [<FunctionName("Save")>]
-    let save([<HttpTrigger("post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+    let save([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       try
         let x = req |> ofReq<obj>
         let t = ``type``
@@ -59,7 +59,7 @@ module API =
         upcast StatusCodeResult(500)
 
     [<FunctionName("Load")>]
-    let load([<HttpTrigger(Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+    let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       let t = ``type``
       log.LogInformation(sprintf "Loading '%s' '%s'" t name)
       match store.TryGetValue(name) with
