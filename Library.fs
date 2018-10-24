@@ -30,11 +30,6 @@ module API =
 
     let mutable store = Map.empty
 
-    // Necessary for some reason--without this nothing will work
-    [<FunctionName("Heartbeat")>]
-    let run([<HttpTrigger>] req: HttpRequest, log: ILogger) =
-      ContentResult(Content="I am alive", ContentType="text")
-
     [<FunctionName("List")>]
     let list([<HttpTrigger(Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
       let t = ``type``
