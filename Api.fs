@@ -11,6 +11,7 @@ module API =
     open System
     open System.Threading
     open System.Security.Claims
+    open DataAccess
 
     let ofReq<'t when 't: equality and 't :> obj>(req: HttpRequest) =
       try
@@ -21,16 +22,6 @@ module API =
         |> Result.Ok
       with
         exn -> Result.Error (exn.ToString())
-
-    type DynamicStorageRow =
-      {
-      owner: string
-      key: string
-      ``type``: string
-      value: obj
-      }
-
-    let mutable store = Map.empty
 
     let ident (req: HttpRequest) =
       let id =
@@ -45,15 +36,14 @@ module API =
         | _ -> "Unknown"
       sprintf "%s\\%s" id name
 
-    let myStores req =
-      let me = ident req
-      store |> Map.filter (fun _ (v: DynamicStorageRow) -> v.owner = me)
-
     [<FunctionName("List")>]
     let list([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
-      let t = ``type``
-      log.LogInformation(sprintf "Listing '%s'" t)
-      JsonResult(myStores req |> Seq.map (function KeyValue(_, row) -> row.value))
+      try
+        let t = ``type``
+        log.LogInformation(sprintf "Listing '%s'" t)
+        JsonResult(DataAccess.list (ident req) t)
+      with e ->
+        JsonResult(e.ToString())
 
     [<FunctionName("Save")>]
     let save([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
@@ -69,9 +59,8 @@ module API =
           upcast (ContentResult(Content="Must supply payload in request body", ContentType="text", StatusCode = Nullable 400))
         | Ok (Some v) ->
           let key = name
-          let v = ({ DynamicStorageRow.value = box v; key = key; owner = ident req; ``type`` = t })
-          store <- (store |> Map.add key v)
-          upcast JsonResult(v.value)
+          DataAccess.save (ident req) t key v
+          upcast JsonResult((DataAccess.load (ident req) t key).Value)
       with
       exn ->
         log.LogError (sprintf "Unhandled exception in save(): '%A'" exn)
@@ -81,10 +70,10 @@ module API =
     let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       let t = ``type``
       log.LogInformation(sprintf "Loading '%s' '%s'" t name)
-      match (myStores req).TryGetValue(name) with
-      | true, v ->
+      match DataAccess.load (ident req) t name with
+      | Some v ->
         log.LogInformation(sprintf "Loaded '%s' '%s': '%A'" t name v)
-        upcast JsonResult(v.value)
+        upcast JsonResult(v)
       | _ ->
         upcast StatusCodeResult(404)
 

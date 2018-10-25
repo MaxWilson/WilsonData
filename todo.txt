@@ -1,5 +1,19 @@
-Need to add CosmosDB integration
+Figure out what Azure config needs to happen to eliminate error on local machine
+List only works once due to "resource already exists" error
 Figure out how to user bearer token auth when function app disallows anonymous access
+
+=====================
+Solved: error when calling List more than once
+"System.AggregateException: One or more errors occurred. (Message: {\"Errors\":[\"Resource with specified id, name, or unique index already exists.\"]}..."
+
+Solution: use CreateDatabaseIfNotExistsAsync.
+
+=====================
+Unsolved: error during testing
+Access token could not be acquired.
+Exception for cert #1 with thumbprint EB95D82AE9E73AEFD0BFA36707E895D0F64653F8: AADSTS700016: Application with identifier '797be866-267a-437a-b711-845ad3644443' was not found in the directory '4510468d-3790-4a1a-8209-84281b2d1596'. This can happen if the application has not been installed by the administrator of the tenant or consented to by any user in the tenant. You may have sent your authentication request to the wrong tenant
+
+
 
 =====================
 Solved: Auth is not working for POST/Save (403 Forbidden) when anonymous access is disabled on function app.
@@ -17,3 +31,8 @@ Cookie: AppServiceAuthSession=coIVRjZqvPf97l5PU/Dla8X5aLRavTE50QzIA1lXQjxBlAV3v6
 Content-Length: 100
 
 {'members': ['Eladriel Shadowdancer','Cranduin the Lesser','Vladimir Nightbinder','Nevermore Jack']}
+
+=====================
+
+Solved assembly loading issue (Microsoft.IdentityModel.Clients.ActiveDirectory.Platform) by downgrading Microsoft.IdentityModel.Clients.ActiveDirectory to 3.16
+
