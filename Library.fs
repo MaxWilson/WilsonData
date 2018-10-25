@@ -34,7 +34,7 @@ module API =
     let list([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
       let t = ``type``
       log.LogInformation(sprintf "Listing '%s'" t)
-      JsonResult(store)
+      JsonResult(store |> Seq.map (function KeyValue(_, row) -> row.value))
 
     [<FunctionName("Save")>]
     let save([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
@@ -52,7 +52,7 @@ module API =
           let key = name
           let v = ({ DynamicStorageRow.value = box v; key = key; owner = "Unknown"; ``type`` = t })
           store <- (store |> Map.add key v)
-          upcast JsonResult(v)
+          upcast JsonResult(v.value)
       with
       exn ->
         log.LogError (sprintf "Unhandled exception in save(): '%A'" exn)
@@ -65,7 +65,7 @@ module API =
       match store.TryGetValue(name) with
       | true, v ->
         log.LogInformation(sprintf "Loaded '%s' '%s': '%A'" t name v)
-        upcast JsonResult(v)
+        upcast JsonResult(v.value)
       | _ ->
         upcast StatusCodeResult(404)
 
