@@ -4,7 +4,12 @@ Generic key-value store built on top of Azure functions
 
 Authenticate via https://wilsondata.azurewebsites.net/.auth/login/Google (or Facebook or whatever) and then call one of the following:
 
-POST (Save)[https://wilsondata.azurewebsites.net/api/List/ssid/party1]
+POST (Save)[https://wilsondata.azurewebsites.net/api/Save/ssid/party1]
+
+```
+curl https://wilsondata.azurewebsites.net/api/Save/ssid/party1 -D "['Eladriel Shadowdancer','Nevermore Jack','Vladimir Nightbinder','Cranduin the Lesser']"
+```
+
 GET (Load)[https://wilsondata.azurewebsites.net/api/Load/ssid/party1]
 GET (List)[https://wilsondata.azurewebsites.net/api/List/ssid]
 
