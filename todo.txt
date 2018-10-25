@@ -1,2 +1,19 @@
-Auth is not working for Save
 Need to add CosmosDB integration
+Figure out how to user bearer token auth when function app disallows anonymous access
+
+=====================
+Solved: Auth is not working for POST/Save (403 Forbidden) when anonymous access is disabled on function app.
+
+Remover User-Agent header. E.g. this works:
+
+POST https://wilsondata.azurewebsites.net/api/Save/ssid/p2 HTTP/1.1
+Host: wilsondata.azurewebsites.net
+Connection: keep-alive
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.9,sv;q=0.8
+Cookie: AppServiceAuthSession=coIVRjZqvPf97l5PU/Dla8X5aLRavTE50QzIA1lXQjxBlAV3v6gOpw58zqNzvEbg/DyCLCyGYbNqNonoJ+XUhRbyRxyO3kUHnATH+b8ctcuxIXN4uQ2wB6zIfBP9IgN/Nm8Xs8EVra4c2V/w/Dn+NcOwNlA+BdJGIpUWV+VC7fi8yAnZZoeF+GL6qNnqVREdVyy+E+q2iXQES26dPMSOe8WQrxYijZxiC2TSr5JJQIld1M6xdTu0pWkeB9pk2T/zow/zxC6CxezwihkI/O9P/XmpzSyWTzcL8AMTWawK/TUKxSfCGnqHUMfDxHlixArQRi8drx2hb3F+HdF/gW8syBdSiPJH6DOEbjkkAUzk56Bzo5mC1X2ATMy1H5TtLk7Zp6aTo1pgep19iPUYZdpdo7qgfIOI7UyO2+Krc+BAb+ZSmAxz96T905R3Vvp5aG1EU5LU5C9bPx2z9bLNou+4PxHtjgJfn7V7S8hZVx17X+kEOpFiInfMXSXYUO7YbzLGkBTZk+3rUu0HYtR1g6HOqxXGkXByZMIKycM0U+VEtJnd1+We7CfQA/+SS38LNjZzk8+mLzG1g7FCSMgGMTdF8cU1nE13jQZLLhNs8l1g2bFTEsl+uXCtADiec5IR0u+ixC2JnwkCaY09NgrkEgFPOCn/NT2Kdzr8VVoLjJwtN/aqAiTvJsfp+BwhBQluyzkcsT0eFiTW+i6weuxA6yqZ6A==
+Content-Length: 100
+
+{'members': ['Eladriel Shadowdancer','Cranduin the Lesser','Vladimir Nightbinder','Nevermore Jack']}
