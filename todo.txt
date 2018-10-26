@@ -1,6 +1,10 @@
 Figure out what Azure config needs to happen to eliminate error on local machine
 List only works once due to "resource already exists" error
-Figure out how to user bearer token auth when function app disallows anonymous access
+
+=====================
+Solved/mitigated: Figure out how to user bearer token auth when function app disallows anonymous access
+
+You can use an AAD token. I couldn't get the Google or Facebook tokens to work, but when I use an id_token from provider_name "aad" (from hitting https://wilsondata.azurewebsites.net/.auth/me as login endpoint), it is usable as a bearer token. (Authorization: bearer <id_token>)
 
 =====================
 Solved: error when calling List more than once
@@ -13,7 +17,7 @@ Unsolved: error during testing
 Access token could not be acquired.
 Exception for cert #1 with thumbprint EB95D82AE9E73AEFD0BFA36707E895D0F64653F8: AADSTS700016: Application with identifier '797be866-267a-437a-b711-845ad3644443' was not found in the directory '4510468d-3790-4a1a-8209-84281b2d1596'. This can happen if the application has not been installed by the administrator of the tenant or consented to by any user in the tenant. You may have sent your authentication request to the wrong tenant
 
-
+Seems to be connected to running on CorpNet. Works fine from my own laptop.
 
 =====================
 Solved: Auth is not working for POST/Save (403 Forbidden) when anonymous access is disabled on function app.

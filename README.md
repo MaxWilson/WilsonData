@@ -2,12 +2,12 @@ Generic key-value store built on top of Azure functions
 
 ### Usage examples: 
 
-Authenticate via https://wilsondata.azurewebsites.net/.auth/login/Google (or Facebook or whatever) and then call one of the following:
+Authenticate via https://wilsondata.azurewebsites.net/.auth/me and then call one of the following with the id_token:
 
 POST (Save)[https://wilsondata.azurewebsites.net/api/Save/ssid/party1]
 
 ```
-curl https://wilsondata.azurewebsites.net/api/Save/ssid/party1 -D "['Eladriel Shadowdancer','Nevermore Jack','Vladimir Nightbinder','Cranduin the Lesser']"
+curl https://wilsondata.azurewebsites.net/api/Save/ssid/party1 -d "['Eladriel Shadowdancer','Nevermore Jack','Vladimir Nightbinder','Cranduin the Lesser']" -H "Authorization: bearer eyJ0eXAi...etc."
 ```
 
 GET (Load)[https://wilsondata.azurewebsites.net/api/Load/ssid/party1]
