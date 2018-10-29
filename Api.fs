@@ -12,6 +12,7 @@ module API =
     open System.Threading
     open System.Security.Claims
     open DataAccess
+    open System.Net.Http
 
     let ofReq<'t when 't: equality and 't :> obj>(req: HttpRequest) =
       try
@@ -36,17 +37,37 @@ module API =
         | _ -> "Unknown"
       sprintf "%s.%s" id name
 
+    let toResponse (action: IActionResult) =
+      { new IActionResult with
+          member this.ExecuteResultAsync (ctx: ActionContext) =
+            async {
+              do! (action.ExecuteResultAsync(ctx)) |> Async.AwaitTask
+              let respH = ctx.HttpContext.Response.Headers
+              match ctx.HttpContext.Request.Headers.TryGetValue("Origin") with
+              | true, origin ->
+                respH.Add("Access-Control-Allow-Credentials", Microsoft.Extensions.Primitives.StringValues("true"))
+                respH.Add("Access-Control-Allow-Origin", origin)
+                respH.Add("Access-Control-Allow-Methods", Microsoft.Extensions.Primitives.StringValues "GET, OPTIONS")
+              | _ ->
+                let origin = Microsoft.Extensions.Primitives.StringValues "http://localhost:8080"
+                respH.Add("Access-Control-Allow-Credentials", Microsoft.Extensions.Primitives.StringValues("true"))
+                respH.Add("Access-Control-Allow-Origin", origin)
+                respH.Add("Access-Control-Allow-Methods", Microsoft.Extensions.Primitives.StringValues "GET, OPTIONS")
+            } |> Async.StartAsTask :> System.Threading.Tasks.Task
+        }
+
     [<FunctionName("List")>]
     let list([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route="List/{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
       try
         let t = ``type``
         log.LogInformation(sprintf "Listing '%s'" t)
-        JsonResult(DataAccess.list (ident req) t)
+        JsonResult(DataAccess.list (ident req) t) |> toResponse
       with e ->
         JsonResult(e.ToString())
+      |> toResponse
 
     [<FunctionName("Save")>]
-    let save([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+    let save([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) =
       try
         let x = req |> ofReq<obj>
         let t = ``type``
@@ -54,26 +75,26 @@ module API =
         match x with
         | Error err ->
           log.LogError (sprintf "Error in save(): '%A'" err)
-          upcast ContentResult(Content=err, ContentType="text", StatusCode = Nullable 500)
+          ContentResult(Content=err, ContentType="text", StatusCode = Nullable 500) |> toResponse
         | Ok None ->
-          upcast (ContentResult(Content="Must supply payload in request body", ContentType="text", StatusCode = Nullable 400))
+          (ContentResult(Content="Must supply payload in request body", ContentType="text", StatusCode = Nullable 400)) |> toResponse
         | Ok (Some v) ->
           let key = name
           DataAccess.save (ident req) t key v
-          upcast JsonResult((DataAccess.load (ident req) t key).Value)
+          JsonResult((DataAccess.load (ident req) t key).Value) |> toResponse
       with
       exn ->
         log.LogError (sprintf "Unhandled exception in save(): '%A'" exn)
-        upcast StatusCodeResult(500)
+        StatusCodeResult(500) |> toResponse
 
     [<FunctionName("Load")>]
-    let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+    let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) =
       let t = ``type``
       log.LogInformation(sprintf "Loading '%s' '%s'" t name)
       match DataAccess.load (ident req) t name with
       | Some v ->
         log.LogInformation(sprintf "Loaded '%s' '%s': '%A'" t name v)
-        upcast JsonResult(v)
+        JsonResult(v) |> toResponse
       | _ ->
-        upcast StatusCodeResult(404)
+        StatusCodeResult(404) |> toResponse
 
