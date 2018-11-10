@@ -14,7 +14,10 @@ type DynamicStorageRow =
   key: string
   ``type``: string
   value: obj
+  isPublic: bool // can it be seen by people other than the owner?
   }
+
+type RowSummary = { name: string; isPublic: bool }
 
 let tok = AzureServiceTokenProvider()
 let kv = new KeyVaultClient(fun authority resource scope -> tok.KeyVaultTokenCallback.Invoke(authority, resource, scope))
@@ -42,6 +45,11 @@ let collectionUri =
 
 let list owner typename =
   client.Value.CreateDocumentQuery<_>(collectionUri.Value).Where(fun (d:DynamicStorageRow) -> d.owner = owner && d.``type`` = typename)
+  |> Seq.map (fun v -> { name = v.key; isPublic = v.isPublic })
+  |> List.ofSeq
+
+let loadAll owner typename =
+  client.Value.CreateDocumentQuery<_>(collectionUri.Value).Where(fun (d:DynamicStorageRow) -> d.owner = owner && d.``type`` = typename)
   |> Seq.map (fun v -> v.value)
   |> List.ofSeq
 
@@ -52,13 +60,22 @@ let load owner typename key =
   | [] ->
     None
 
-let save owner typename key value =
+let save isPublic owner typename key value =
   let record = {
     id = sprintf "%s.%s.%s" owner typename key
     owner = owner
     ``type`` = typename
     key = key
     value = value
+    isPublic = isPublic
     }
   client.Value.UpsertDocumentAsync(collectionUri.Value, record).Wait()
+
+let delete owner typename key =
+  match client.Value.CreateDocumentQuery<_>(collectionUri.Value).Where(fun (d:DynamicStorageRow) -> d.owner = owner && d.``type`` = typename && d.key = key).Take(1) |> List.ofSeq with
+  | record::_ ->
+    client.Value.DeleteDocumentAsync(UriFactory.CreateDocumentUri(dbMetadata.Value.Id, collectionMetadata.Value.Id, record.id)).Wait()
+    Some record.value
+  | [] ->
+    None
   
