@@ -14,27 +14,23 @@ module API =
     open DataAccess
 
     let ofReq<'t when 't: equality and 't :> obj>(req: HttpRequest) =
-      try
-        use body = new StreamReader(req.Body)
-        match JsonConvert.DeserializeObject<'t>(body.ReadToEnd()) with
-          | v when v = Unchecked.defaultof<_> -> None
-          | v -> Some v
-        |> Result.Ok
-      with
-        exn -> Result.Error (exn.ToString())
+        try
+            use body = new StreamReader(req.Body)
+            match JsonConvert.DeserializeObject<'t>(body.ReadToEnd()) with
+                | v when v = Unchecked.defaultof<_> -> None
+                | v -> Some v
+            |> Result.Ok
+        with
+            exn -> Result.Error (exn.ToString())
 
     let ident (req: HttpRequest) =
-      let id =
-        match req.Headers.TryGetValue("X-MS-CLIENT-PRINCIPAL-ID") with
-        | true, v ->
-          v.[0]
-        | _ -> "Unknown"
-      let name =
-        match req.Headers.TryGetValue("X-MS-CLIENT-PRINCIPAL-NAME") with
-        | true, v ->
-          v.[0]
-        | _ -> "Unknown"
-      sprintf "%s.%s" id name
+        if req.HttpContext.User.Identity.IsAuthenticated |> not then
+            "Anonymous"
+        else
+            let claim typ = req.HttpContext.User.Claims |> Seq.tryFind (fun c -> c.Type = typ) |> Option.map (fun c -> c.Value) |> Option.defaultValue ("Missing") // missing shouldn't happen
+            let provider = claim "http://schemas.microsoft.com/identity/claims/identityprovider"
+            let stableSid = claim ClaimTypes.NameIdentifier
+            sprintf "%s.%s" provider stableSid
 
     [<FunctionName("LoadAll")>]
     let loadAll([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route="{type}")>] req: HttpRequest, ``type``:string, log: ILogger) =
@@ -74,11 +70,6 @@ module API =
     let savePrivate([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       saveBase(false, req, ``type``, name, log)
 
-    // deprecated: v1
-    [<FunctionName("SaveV1")>]
-    let saveV1([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
-      savePrivate(req, ``type``, name, log)
-
     [<FunctionName("Load")>]
     let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       let t = ``type``
@@ -89,11 +80,6 @@ module API =
         upcast JsonResult(v)
       | _ ->
         upcast StatusCodeResult(404)
-
-    // deprecated: v1
-    [<FunctionName("LoadV1")>]
-    let loadV1([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
-      load(req, ``type``, name, log)
 
     [<FunctionName("Delete")>]
     let delete([<HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route="{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
@@ -114,3 +100,16 @@ module API =
     [<FunctionName("Save")>]
     let publish([<HttpTrigger(AuthorizationLevel.Anonymous, "post", Route="Save/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       saveBase(true, req, ``type``, name, log)
+
+    // endpoint for debugging identity properties
+    [<FunctionName("Ident")>]
+    let identity([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Ident")>] req: HttpRequest) : ActionResult =
+        upcast ({|  identity = ident req
+                    headers = req.Headers |> Seq.map (fun h -> {| name = h.Key; value = h.Value |}) |> Array.ofSeq
+                    claims =
+                        match (req.HttpContext.User) with
+                        | null -> [||]
+                        | p ->
+                            p.Claims |> Seq.map(fun c -> {| claimType = c.Type; value = c.Value |}) |> Array.ofSeq
+                    |}
+                |> JsonResult)
