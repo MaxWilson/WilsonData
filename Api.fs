@@ -27,9 +27,10 @@ module API =
         if req.HttpContext.User.Identity.IsAuthenticated |> not then
             "Anonymous"
         else
-            let claim typ = req.HttpContext.User.Claims |> Seq.tryFind (fun c -> c.Type = typ) |> Option.map (fun c -> c.Value) |> Option.defaultValue ("Missing") // missing shouldn't happen
-            let provider = claim "http://schemas.microsoft.com/identity/claims/identityprovider"
-            let stableSid = claim ClaimTypes.NameIdentifier
+            let claim typ = req.HttpContext.User.Claims |> Seq.tryFind (fun c -> c.Type = typ) |> Option.map (fun c -> c.Value)
+            let addDefault = Option.defaultValue ("Missing") // missing shouldn't happen
+            let provider = claim "http://schemas.microsoft.com/identity/claims/identityprovider" |> addDefault
+            let stableSid = claim "stable_sid" |> Option.defaultValue (claim ClaimTypes.NameIdentifier |> addDefault)
             sprintf "%s.%s" provider stableSid
 
     [<FunctionName("LoadAll")>]
