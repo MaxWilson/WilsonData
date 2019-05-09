@@ -72,7 +72,7 @@ module API =
       saveBase(false, req, ``type``, name, log)
 
     [<FunctionName("Load")>]
-    let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Load/{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
+    let load([<HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "{type}/{name}")>] req: HttpRequest, ``type``: string, name: string, log: ILogger) : ActionResult =
       let t = ``type``
       log.LogInformation(sprintf "Loading '%s' '%s'" t name)
       match DataAccess.load (ident req) t name with
